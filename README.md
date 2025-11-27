@@ -1,136 +1,133 @@
-# CIX-P1-ACPI Ubuntu img适配方法
+# CIX-P1-ACPI Ubuntu Image Adaptation Method
 
-## 一. 制作启动镜像
+## Chapter  I. Creating a Boot Image
 
-## 前言
+### Preface
 
-    本文档适用于Ubuntu22.04、Ubuntu24.04、Ubuntu25.05版本在此芯P1芯片上的适配，以Radxa O6和Cix EVB板子为例编写的文档，其它开发板也可以借鉴此文档，核心的区别在于boot.img和内核的deb包不同。
+    This document is applicable for adapting Ubuntu 22.04, Ubuntu 24.04, and Ubuntu 25.04 versions on the CIX P1. It is written using the Radxa O6 board as an example. Other development boards featuring the CIX P1 can also refer to this document. Note that different development boards require different kernels for booting, relevant kernel source code can be obtained from the respective development board vendor.
 
-### 1.1 Ubuntu img介绍
+### 1.1 Ubuntu Image Introduction
 
-    一些ubuntu版本采用了一些比较老的内核（6.12之前），iso镜像无法在CIX P1上安装，这个时候我们需要下载树莓派的镜像，替换成CIX的内核再放到CIX P1上启动。在[Index of /ubuntu/releases](https://cdimage.ubuntu.com/ubuntu/releases/) 网页选择所需版本的Ubuntu preinstalled desktop img镜像文件，例如: https://cdimage.ubuntu.com/ubuntu/releases/24.04/release/ubuntu-24.04.3-preinstalled-desktop-arm64+raspi.img.xz 。
+    Some Ubuntu versions use relatively older kernels (prior to 6.12), and their ISO images cannot be installed directly on the CIX P1 platform. In such cases, we need to download a Raspberry Pi image, replace the kernel-related files in the boot partition with the Radxa kernel, and then use it to boot on the Radxa O6 board. On the [Index of /ubuntu/releases](https://cdimage.ubuntu.com/ubuntu/releases/) webpage, select the desired version of the Ubuntu preinstalled desktop image file, for example: https://cdimage.ubuntu.com/ubuntu/releases/24.04/release/ubuntu-24.04.3-preinstalled-desktop-arm64+raspi.img.xz.
 
-### 1.2 制作启动盘
+### 1.2 Creating the Boot Disk
 
-    以下操作都是在x86主机上进行，推荐使用ubuntu24.04系统。 
+    The following operations are performed on an x86 host machine; Ubuntu 24.04 system is recommended.
 
-#### 1.2.1 所需材料
+#### 1.2.1 Required Materials
 
-**注意：boot.img和kernel通过25Q3 Release中获取。**
+1. Ubuntu preinstalled desktop image file ([Index of /ubuntu/releases](https://cdimage.ubuntu.com/ubuntu/releases/))
 
-1. Ubuntu img文件
-2. 准备一个nvme和nvme读卡器
-3. 准备boot.img  
-4. 准备kernel相关的deb包：
-   linux-libc-dev_6.6.xxxxx_arm64.deb
-   linux-image-6.6.xxx_arm64.deb
-   linux-headers-6.6xxx_arm64.deb
-   cix-env_xxx_arm64.deb
-   cix-firmware_xxx_arm64.deb
+2. Prepare an NVMe SSD and an NVMe card reader
 
-#### 1.2.2 dd镜像
+3. Prepare the kernel source code (**Note: Obtain the kernel source code from the original vendor**).
 
-将nvme接读卡器插入下x86 linux主机，使用命令烧写镜像
+4. Prepare the kernel Image file and deb packages (**Outputs from kernel source compilation**): 
+   
+   * `Image`
+   * `linux-libc-dev_6.6.xxxxx_arm64.deb`
+   * `linux-image-6.6.xxx_arm64.deb`
+   * `linux-headers-6.6xxx_arm64.deb`
 
-```
-sudo dd if=ubuntu-24.04.xxx-preinstalled-desktop-arm64+raspi.img of=/dev/sdxxx bs=10M status=progress 
-```
+5. Prepare the GRUB directory files (**Provided by this GitHub repository**)
 
-**注意：刷完之后重新插拔一下烧录器，以便系统重新识别分区和文件系统  1.2.3    更换kernel**
+6. Prepare the EFI directory files (**Provided by this GitHub repository**)
 
-1. 替换Image和grub 
+7. Other files (**Provided by this GitHub repository**):
+   
+   * `cix-env_xxx_arm64.deb`
+   * `cix-firmware_xxx_arm64.deb`
 
-```
+#### 1.2.2 DD the Image
 
-mkdir -p /mnt/boot
-mkdir -p /mnt/1
-mount /dev/sda1 /mnt/1        //sda1是EFI分区
-mount boot.img /mnt/boot
-rm -rf /mnt/1/* 
-cp -rf /mnt/boot/* /mnt/1
-```
-
-2. 修改grub启动参数
--  修改/mnt/1/GRUB/GRUB.CFG，将其中的uuid  改成/dev/nvme0n1p2
-
-- 修改默认启动项，Radxa O6修改默认启动项为31，CIX EVB板则是1。
-
-- 如果所选启动选存在initrd启动，则删除
-  **修改前：**
+    Connect the NVMe SSD to the x86 Linux host via the card reader, and use the following command to write the image(**Note: sdxxx should be modified according to the actual NVMe device node, which can be checked using lsblk, e.g., /dev/sda, /dev/sdb, etc.**):
 
 ```
-cat /mnt/1/GRUB/GRUB.CFG
-set debug=loader,mm
-set term=vt100
-set default=0        //Radxa修改默认启动项为31，P1 EVB板则是1
-set timeout=2
-
-......
-
-menuentry '1 Cix Sky1 on EVB (ACPI)' {
-    linux /Image \
-        console=ttyAMA2,115200 \
-        efi=noruntime \
-        earlycon=pl011,0x040d0000 \
-        arm-smmu-v3.disable_bypass=0 \
-        cma=640M \
-        acpi=force splash \
-        loglevel=4 \
-        pcie_aspm=off \
-        resume=PARTUUID=4c3b24d6-6bf4-4073-91f8-0fc9313947a6 noresume root=PARTUUID=a7cd7254-f1f8-48f6-8617-efe92d1154cb rootwait rw    //uuid 改成/dev/nvme0n1p2
-    initrd /initrd.img-6.6.89-cix-build-generic        //initrd这行需删除
-}
-
-......
+sudo dd if=ubuntu-24.04.xxx-preinstalled-desktop-arm64+raspi.img of=/dev/sdxxx bs=10M status=progress
 ```
 
- **以EVB板为例，修改后：**
+**Note: After flashing, reconnect the card reader to allow the system to re-recognize the partitions and filesystems.**
+
+#### 1.2.3  Replacing the Kernel
+
+**Note: The kernel replacement method is demonstrated using Radxa O6 as an example. For other development boards, obtain the kernel code from the respective board vendor.**
+
+1. Add relevant kernel configs
+   * After obtaining the source code, Modify the `linux/arch/arm64/configs/cix.config` file:
 
 ```
-at /mnt/1/GRUB/GRUB.CFG
-set debug=loader,mm
-set term=vt100
-set default=1
-set timeout=2
+   CONFIG_BPF_SYSCALL=y
 
-......
-
-menuentry '1 Cix Sky1 on EVB (ACPI)' {
-    linux /Image \
-        console=ttyAMA2,115200 \
-        efi=noruntime \
-        earlycon=pl011,0x040d0000 \
-        arm-smmu-v3.disable_bypass=0 \
-        cma=640M \
-        acpi=force splash \
-        loglevel=4 \
-        pcie_aspm=off \
-        resume=PARTUUID=4c3b24d6-6bf4-4073-91f8-0fc9313947a6 noresume root=/dev/nvme0n1p2
-}
-
-......
+   CONFIG_SQUASHFS_XZ=y
+   CONFIG_SQUASHFS_LZ4=y
+   CONFIG_SQUASHFS_LZO=y
+   CONFIG_SQUASHFS_ZSTD=y
 ```
 
- 
+        
 
-3. 安装 cix kernel包
+2. Obtaining Source Code and Compiling Kernel for Radxa O6(**choose one method**):
+   
+   * Obtain and compile kernel code separately
+     
+     - Source code location: [radxa-pkg/linux-sky1: Radxa Linux image for sky1 release](https://github.com/radxa-pkg/linux-sky1)  (**Note: Refer to README for download and compilation instructions**)
+     
+     - Output locations:
+       
+       1. `./arch/arm64/boot/Image`
+       2. `../linux-libc-dev_6.6.xxxxx_arm64.deb`
+       3. `../linux-image-6.6.xxx_arm64.deb`
+       4. `../linux-headers-6.6xxx_arm64.deb`
+   
+   * Obtain and compile complete O6 Cix P1 source code
+     
+     * Source code: [Obtain the Source Code | Radxa Docs](https://docs.radxa.com/en/orion/o6/cix-sdk/get-source) 
+     * Compilation method: [Software Compilation | Radxa Docs](https://docs.radxa.com/en/orion/o6/cix-sdk/build)  (**Note: To compile only the kernel, prepare the build environment and use the build kernel command**) 
+     * Output locations:
+       1. `./output/cix_evb/Image`
+       2. `./output/cix_evb/debs/linux-libc-dev_6.6.xxxxx_arm64.deb`
+       3. `./output/cix_evb/debs/linux-image-6.6.xxx_arm64.deb`
+       4. `./output/cix_evb/debs/linux-headers-6.6xxx_arm64.deb`
+
+3. Compile the kernel using the build environment provided by the original vendor to generate the required outputs:    
+
+            `Image`
+
+            `linux-libc-dev_6.6.xxx_arm64.deb`
+
+            `linux-image-6.6.xxx_arm64.deb`
+
+            `linux-headers-6.6xxx_arm64.deb`
+
+4. Replace the Image file and GRUB directory
 
 ```
-mkdir -p /mnt/2
-mount /dev/sda2 /mnt/2          //sda2是根分区
+mkdir -p /mnt/bootfs
+mount /dev/sda1 /mnt/bootfs       // sda1 is the EFI partition
+rm -rf /mnt/bootfs/*
+cp -f Image /mnt/bootfs
+cp -rf GRUB /mnt/bootfs
+cp -rf EFI /mnt/bootfs
 ```
 
-    将linux-libc-dev_6.6.xxxxx_arm64.deb、linux-image-6.6.xxx_arm64.deb、linux-headers-6.6.xxx_arm64.deb、cix-env_xxx_arm64.deb、cix-firmware_xxx_arm64.deb这五个包拷贝到/mnt/2
+5. Install kernel packages
 
 ```
-chroot /mnt/2                //进入rootfs chroot环境
-dpkg -i linux-*.deb                     //安装rootfs中的ko
-dpkg –i cix-firmware_xxx_arm64.deb    
-dpkg –i --force-overwrite cix-env_xxx_arm64.deb
+mkdir -p /mnt/rootfs
+mount /dev/sda2 /mnt/rootfs         // sda2 is the root partition
 ```
 
-4. 修改系统服务
-   **注意保持chroot环境**
+    Copy the following five packages to `/mnt/rootfs`: `linux-libc-dev_6.6.xxxxx_arm64.deb`, `linux-image-6.6.xxx_arm64.deb`, `linux-headers-6.6.xxx_arm64.deb`, `cix-env_xxx_arm64.deb`, `cix-firmware_xxx_arm64.deb`
+
+```
+chroot /mnt/rootfs                // Enter the rootfs chroot environment
+dpkg -i linux-*.deb                     // Install the kernel packages in rootfs. Note: Ignore any kernel installation errors.
+dpkg -i cix-firmware_xxx_arm64.deb    
+dpkg -i --force-overwrite cix-env_xxx_arm64.deb
+```
+
+6. Modify system services
+   **Note: Remain in the chroot environment**
 
 ```
 systemctl disable oem-config.service  
@@ -138,34 +135,39 @@ systemctl disable unattended-upgrades
 systemctl disable cloud-init-local cloud-init cloud-config cloud-final 
 systemctl set-default graphical.target
 useradd -m -G sudo,video cix
-passwd cix    //随后输入cix用户的密码
-exit  //退出chroot环境  
-umount /mnt/boot
-umount /mnt/1
-umount /mnt/2
+passwd cix    // Then enter the password for the 'cix' user
+exit  // Exit chroot environment
+
+umount /mnt/bootfs
+umount /mnt/rootfs
 ```
 
-5. 根分区扩容（**注意：必要操作，否则系统无法启动**）
+7. Root Partition Resizing
+   **Note: Essential step, otherwise the system may fail to boot, resize according to your needs (10%~100%)**
 
 ```
-parted /dev/sda   //进入根据自身使用需求扩容10%~100%
+parted /dev/sda   // Within parted, use `resizepart 2 ...` and `quit`
 e2fsck -f /dev/sda2
 resize2fs /dev/sda2  
 ```
 
-#### 1.2.4    启动系统
+#### 1.2.4 Booting the System
 
-将nvme放到Radxa O6机器上开机后能够自动boot到Ubuntu系统。 
+    Place the NVMe SSD into the Radxa O6 machine and power on; it should automatically boot into the Ubuntu system.
 
 
 
-## 第2章 安装deb包使能硬件
+## Chapter 2. Enable Hardware
 
-**注意：ubuntu22.04版本因gcc版本小于12不支持 trivial-auto-var-init 编译选项，所以dkms编译需要修改内核头文件中的Makefile，修改方法：删除/usr/src/linux-headers-6.6.89-cix-build-generic/Makefile 中“KBUILD_CFLAGS   += -ftrivial-auto-var-init=zero ”这一行**
+**Note 1: Ubuntu 22.04, due to its GCC version being less than 12, does not support the `-ftrivial-auto-var-init` compilation option. Therefore, DKMS compilation requires modifying the Makefile in the kernel headers. Modification method: Delete the line `KBUILD_CFLAGS += -ftrivial-auto-var-init=zero` in `/usr/src/linux-headers-6.6.89-cix-build-generic/Makefile`.**
 
-### 2.1 安装GPU
+**Note 2: The relevant packages mentioned below are obtained from this GitHub repository.**
 
-    准备相关包： cix-go-xxx.tar.gz
+### 2.1 GPU Installation
+
+Prepare the relevant package: 
+
+- `cix-go-xxx.tar.gz`
 
 ```
 sudo su  
@@ -185,21 +187,20 @@ reboot
 
 
 
-### 2.2 安装NPU
+### 2.2 NPU Installation
 
-准备相关包： 
+Prepare the relevant packages:
 
-    cix-npu-driver_xxx_arm64.deb
+* `cix-npu-driver_xxx_arm64.deb`
 
-    cix-noe-umd_xxx_arm64.deb
+* `cix-noe-umd_xxx_arm64.deb`
 
 ```
+sudo apt update
+sudo apt install python3-pip
 sudo dpkg -i *.deb 
 
-sudo apt update sudo
-sudo apt install python3-pip
 sudo apt install dkms 
-
 sudo dkms add -m  aipu -v 5.11.0  
 sudo dkms build -m aipu -v 5.11.0 
 sudo dkms install -m aipu -v 5.11.0 --force
@@ -208,15 +209,15 @@ sudo reboot
 
 
 
-### 2.3  安装VPU
+### 2.3  VPU Installation
 
-    准备相关包： 
+Prepare the relevant packages:
 
-        cix-vpu-test_xxx_arm64.deb
+* `cix-vpu-test_xxx_arm64.deb`
 
-        cix-vpu-driver_xxx_arm64.deb
+* `cix-vpu-driver_xxx_arm64.deb`
 
-        cix-vpu-driver-dkms_xxx_arm64.deb
+* `cix-vpu-driver-dkms_xxx_arm64.deb`
 
 ```
 sudo dpkg -i *.deb
@@ -226,58 +227,68 @@ sudo apt install dkms
 sudo dkms add -m cix-vpu-driver -v 1.0.0
 sudo dkms build -m cix-vpu-driver -v 1.0.0
 sudo dkms install -m cix-vpu-driver -v 1.0.0 --force
-sudo reboot 2.4    
+sudo reboot
 ```
 
 
 
-### 2.4 Ffmpeg&gstreamer硬解
+### 2.4 Ffmpeg & Gstreamer Hardware Decoding
 
-注意：只适用于ubuntu24.04
+**Note: Only applicable to Ubuntu 24.04**
 
-准备相关包：
+Prepare the relevant packages:
 
 1. Ffmpeg
-   libavcodec60_6.1.1-xxx_arm64.deb
+   
+   * `libavcodec60_6.1.1-xxx_arm64.deb`
 
 2. Gstreamer
-   gir1.2-gst-plugins-base-1.0_1.24.2-xxx_arm64.deb
-   gstreamer1.0-gl_1.24.2-xxx_arm64.deb
-   gstreamer1.0-gtk3_1.24.2-xxx_arm64.deb
-   gstreamer1.0-plugins-base-apps_1.24.2-xxx_arm64.deb
-   gstreamer1.0-plugins-base_1.24.2-xxx_arm64.deb
-   gstreamer1.0-plugins-good_1.24.2-xxx_arm64.deb
-   gstreamer1.0-pulseaudio_1.24.2-xxx_arm64.deb
-   libgstreamer-plugins-base1.0-0_1.24.2-xxx_arm64.deb
-   libgstreamer-plugins-good1.0-0_1.24.2-xxx _arm64.deb
    
-   ```
-   sudo apt update
-   sudo apt install ffmpeg   mpv
-   sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav   gstreamer1.0-tools
-   dpkg –i *.deb
-   //mpv 使用
-   mpv --hwdec=auto ‘filename’
-   ```
+   * `gir1.2-gst-plugins-base-1.0_1.24.2-xxx_arm64.deb`
+   
+   * `gstreamer1.0-gl_1.24.2-xxx_arm64.deb`
+   
+   * `gstreamer1.0-gtk3_1.24.2-xxx_arm64.deb`
+   
+   * `gstreamer1.0-plugins-base-apps_1.24.2-xxx_arm64.deb`
+   
+   * `gstreamer1.0-plugins-base_1.24.2-xxx_arm64.deb`
+   
+   * `gstreamer1.0-plugins-good_1.24.2-xxx_arm64.deb`
+   
+   * `gstreamer1.0-pulseaudio_1.24.2-xxx_arm64.deb`
+   
+   * `libgstreamer-plugins-base1.0-0_1.24.2-xxx_arm64.deb`
+   
+   * `libgstreamer-plugins-good1.0-0_1.24.2-xxx_arm64.deb`
 
-### 2.5    安装Alsa配置文件
+```
+sudo apt update
+sudo apt install ffmpeg   mpv
+sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav   gstreamer1.0-tools
+dpkg –i *.deb
+//mpv usage
+mpv --hwdec=auto ‘filename’
+```
 
-    准备相关包：
+### 2.5 Alsa Configuration Files Installation
 
-        cix-alsa-conf_xxx_arm64.deb
+Prepare the relevant package:
+
+* `cix-alsa-conf_xxx_arm64.deb`
 
 ```
 sudo dpkg -i cix-alsa-conf_xxx_arm64.deb
 sudo reboot
 ```
 
-### 2.6    安装wifi&bt驱动
+### 2.6 Installing WiFi & BT Drivers
 
-    准备相关包：
+Prepare the relevant packages:
 
-        cix-wlan_xxx_arm64.deb
+* `cix-wlan_xxx_arm64.deb`
 
-        cix-bt-driver_xxx_arm64.deb
+* `cix-bt-driver_xxx_arm64.deb`
 
 ```
 sudo dpkg –i cix-wlan_xxx_arm64.deb
@@ -286,26 +297,26 @@ sudo depmod -a
 sudo reboot
 ```
 
-**•    设置-网络中显示双网卡问题解决方法：**
+**•    **Solution for dual network cards displayed in Settings -> Network:****
 
 ```
 sudo sed -i 's/NAME=\"$env{ID_NET_NAME}\"/NAME=\"$env{ID_NET_SLOT}\"/' /usr/lib/udev/rules.d/80-net-setup-link.rules
-sudo sed -i "/ACTION!=\"add|change|move\",/aENV{INTERFACE}==\"p2p\",  ENV{NM_UNMANAGED}=\"1\"" /usr/lib/udev/rules.d/85-nm-unmanaged.rules
+sudo sed -i "/ACTION!=\"add|change|move\",/aENV{INTERFACE}==\"*p2p*\",  ENV{NM_UNMANAGED}=\"1\"" /usr/lib/udev/rules.d/85-nm-unmanaged.rules
 ```
 
-## 第三章 FAQ
+## Chapter 3. FAQ
 
-### 1. Firefox启动失败
+### 1. Firefox Fails to Start
 
-**备注：Ubuntu22和Ubuntu24环境需要配置snap环境**
+**Note: Only Ubuntu 22 and Ubuntu 24 environments require Snap environment configuration.**
 
-1.1 下载指定版本的Snapd
+#### 1.1 Download the specified version of Snapd
 
 ```
  sudo snap download snapd --revision=24724
 ```
 
-1.2 安装并锁定版本
+#### 1.2 Install and lock the version
 
 ```
  sudo snap ack snapd_24724.assert
@@ -313,15 +324,10 @@ sudo sed -i "/ACTION!=\"add|change|move\",/aENV{INTERFACE}==\"p2p\",  ENV{NM_UNM
  sudo snap refresh --hold snapd
 ```
 
-1.3 修改内核patch
+### 2. Screen Flickering Issue Resolution
+
+If screen flickering occurs, it is recommended to connect the screen to the DP-1 interface (generally the Type-C port on the board closest to the USB port). After connecting, check using the command:
 
 ```
-CONFIG_BPF_SYSCALL=y
-
-CONFIG_SQUASHFS_XZ=y
-CONFIG_SQUASHFS_LZ4=y
-CONFIG_SQUASHFS_LZO=y
-CONFIG_SQUASHFS_ZSTD=y
+cat /sys/class/drm/card0-DP-1/status    // If it displays 'connected', the connection is correct.
 ```
-
-
