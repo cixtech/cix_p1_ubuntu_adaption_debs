@@ -121,7 +121,7 @@ mount /dev/sda2 /mnt/rootfs         // sda2 is the root partition
 
 ```
 chroot /mnt/rootfs                // Enter the rootfs chroot environment
-dpkg -i linux-*.deb                     // Install the kernel packages in rootfs. Note: Ignore any kernel installation errors.
+dpkg -i linux-*.deb               // Install the kernel packages in rootfs. Note: Ignore any kernel installation errors.
 dpkg -i cix-firmware_xxx_arm64.deb    
 dpkg -i --force-overwrite cix-env_xxx_arm64.deb
 ```
@@ -132,7 +132,7 @@ dpkg -i --force-overwrite cix-env_xxx_arm64.deb
 ```
 systemctl disable oem-config.service  
 systemctl disable unattended-upgrades
-systemctl disable cloud-init-local cloud-init cloud-config cloud-final 
+systemctl disable cloud-init-local cloud-init cloud-config cloud-final NetworkManager-wait-online
 systemctl set-default graphical.target
 useradd -m -G sudo,video cix
 passwd cix    // Then enter the password for the 'cix' user
@@ -163,7 +163,19 @@ resize2fs /dev/sda2
 
 **Note 2: The relevant packages mentioned below are obtained from this GitHub repository.**
 
-### 2.1 GPU Installation
+### 2.1 Quick Installation
+
+- After copying the `debs` directory to the Ubuntu system, navigate to the `debs` directory and execute the following command:
+
+```
+sudo ./cix-install.sh
+```
+
+**Note: After executing this command, the remaining steps in Chapter 2 do not need to be performed.**
+
+ 
+
+### 2.2 GPU Installation
 
 Prepare the relevant package: 
 
@@ -187,7 +199,7 @@ reboot
 
 
 
-### 2.2 NPU Installation
+### 2.3 NPU Installation
 
 Prepare the relevant packages:
 
@@ -209,69 +221,57 @@ sudo reboot
 
 
 
-### 2.3  VPU Installation
+### 2.4  VPU Installation
 
 Prepare the relevant packages:
 
 * `cix-vpu-test_xxx_arm64.deb`
 
-* `cix-vpu-driver_xxx_arm64.deb`
-
 * `cix-vpu-driver-dkms_xxx_arm64.deb`
 
 ```
-sudo dpkg -i *.deb
-sudo apt update
-sudo apt install dkms
+sudo apt update 
+sudo apt install dkms 
+sudo dpkg -i *.deb 
 
-sudo dkms add -m cix-vpu-driver -v 1.0.0
-sudo dkms build -m cix-vpu-driver -v 1.0.0
-sudo dkms install -m cix-vpu-driver -v 1.0.0 --force
-sudo reboot
+sudo reboot 
 ```
 
 
 
-### 2.4 Ffmpeg & Gstreamer Hardware Decoding
+### 2.5 Ffmpeg & Gstreamer Hardware Decoding
 
 **Note: Only applicable to Ubuntu 24.04**
 
 Prepare the relevant packages:
 
-1. Ffmpeg
+1. Ffmpeg(6.1.1 for ubuntu24.04，7.1.1 for ubuntu25.04)
    
-   * `libavcodec60_6.1.1-xxx_arm64.deb`
+   * `ffmpeg-xxx_arm64.deb`
+   * `libavcodec-xxx_arm64.deb``
+   * `libavformat-xxx_arm64.deb`
+   * `libavutil-xxx_arm64.deb libavfilter-xxx_arm64.deb(Only required for Ubuntu 25.04)`
+   * `libavdevice-xxx_arm64.deb(Only required for Ubuntu 25.04)`
+   * `libswscale-xxx_arm64.deb(Only required for Ubuntu 25.04)`
 
-2. Gstreamer
+2. Gstreamer(1.24 for ubuntu24.04，1.26 for ubuntu25.04)
    
-   * `gir1.2-gst-plugins-base-1.0_1.24.2-xxx_arm64.deb`
-   
-   * `gstreamer1.0-gl_1.24.2-xxx_arm64.deb`
-   
-   * `gstreamer1.0-gtk3_1.24.2-xxx_arm64.deb`
-   
-   * `gstreamer1.0-plugins-base-apps_1.24.2-xxx_arm64.deb`
-   
-   * `gstreamer1.0-plugins-base_1.24.2-xxx_arm64.deb`
-   
-   * `gstreamer1.0-plugins-good_1.24.2-xxx_arm64.deb`
-   
-   * `gstreamer1.0-pulseaudio_1.24.2-xxx_arm64.deb`
-   
-   * `libgstreamer-plugins-base1.0-0_1.24.2-xxx_arm64.deb`
-   
-   * `libgstreamer-plugins-good1.0-0_1.24.2-xxx_arm64.deb`
+   * `cix-gstreamer_1.2xxx.deb`
 
 ```
-sudo apt update
-sudo apt install ffmpeg   mpv
-sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav   gstreamer1.0-tools
+sudo apt update 
+sudo apt install ffmpeg mpv
+sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-tools 
 dpkg –i *.deb
-//mpv usage
-mpv --hwdec=auto ‘filename’
+
+//mpv 使用 
+mpv  --hwdec=auto ‘filename’    // ubuntu24.04 
+mpv --hwdec=auto-unsafe –vo=gpu --gpu-context=wayland --gpu-dumb-mode=yes ‘filename’   // ubuntu25.04 
 ```
 
-### 2.5 Alsa Configuration Files Installation
+
+
+### 2.6 Alsa Configuration Files Installation
 
 Prepare the relevant package:
 
@@ -282,7 +282,9 @@ sudo dpkg -i cix-alsa-conf_xxx_arm64.deb
 sudo reboot
 ```
 
-### 2.6 Installing WiFi & BT Drivers
+
+
+### 2.7 Installing WiFi & BT Drivers
 
 Prepare the relevant packages:
 
@@ -297,37 +299,102 @@ sudo depmod -a
 sudo reboot
 ```
 
-**•    **Solution for dual network cards displayed in Settings -> Network:****
 
-```
-sudo sed -i 's/NAME=\"$env{ID_NET_NAME}\"/NAME=\"$env{ID_NET_SLOT}\"/' /usr/lib/udev/rules.d/80-net-setup-link.rules
-sudo sed -i "/ACTION!=\"add|change|move\",/aENV{INTERFACE}==\"*p2p*\",  ENV{NM_UNMANAGED}=\"1\"" /usr/lib/udev/rules.d/85-nm-unmanaged.rules
-```
 
 ## Chapter 3. FAQ
 
-### 1. Firefox Fails to Start
+### 1. **System and Application Issues**
 
-**Note: Only Ubuntu 22 and Ubuntu 24 environments require Snap environment configuration.**
+#### 1.1 Firefox Fails to Start -- Snap Environment Configuration
 
-#### 1.1 Download the specified version of Snapd
-
-```
- sudo snap download snapd --revision=24724
-```
-
-#### 1.2 Install and lock the version
+- Download the specified version of Snapd
 
 ```
- sudo snap ack snapd_24724.assert
- sudo snap install snapd_24724.snap
- sudo snap refresh --hold snapd
+sudo snap download snapd --revision=24724
 ```
 
-### 2. Screen Flickering Issue Resolution
-
-If screen flickering occurs, it is recommended to connect the screen to the DP-1 interface (generally the Type-C port on the board closest to the USB port). After connecting, check using the command:
+- Install and lock the version
 
 ```
-cat /sys/class/drm/card0-DP-1/status    // If it displays 'connected', the connection is correct.
+sudo snap ack snapd_24724.assert
+sudo snap install snapd_24724.snap
+sudo snap refresh --hold snapd
+```
+
+#### 1.2 Memory Leak in Clapper Playback and Snapshot
+
+- Export the following environment variable before running 
+
+```
+export GSK_GPU_DISABLE=mipmap
+```
+
+#### 1.3 SMPlayer Fails to Open on Ubuntu 25.04
+
+- Export the following environment variable before running
+
+```
+export QT_QPA_PLATFORM=wayland
+```
+
+
+
+## 2. Display Issues
+
+#### 2.1 How to Handle Screen Flickering Issues
+
+* If screen flickering occurs, it is recommended to connect the screen to the DP-1 interface (generally the Type-C port on the board closest to the USB port). After connecting, check using the command:
+  
+      cat /sys/class/drm/card0-DP-1/status    // If it displays 'connected', the connection is correct.
+
+#### 2.2 Ubuntu22.04 es2gears_wayland Segmentation fault
+
+    This is caused by an issue within the es2gears_wayland application itself, not a GPU problem.
+
+#### 2.3 Ubuntu 22.04: vulkaninfo Error
+
+- **Error 1**： 
+
+```
+ERROR: [Loader Message] Code 0 : loader_validate_instance_extensions: Extension VK_EXT_surface_maintenance1 not found in list of known instance extensions. ERROR at ./vulkaninfo/vulkaninfo.h:651:vkCreateInstance failed with ERROR_EXTENSION_NOT_PRESENT 
+```
+
+- This is caused by a version mismatch between the higher version of the Mali Vulkan driver and the Vulkan loader that comes with Ubuntu 22.04. It can be resolved by replacing the content of `/etc/vulkan/implicit_layer.d/VkLayer_window_system_integration.json` with the following:
+
+```
+sed -e '/VK_EXT_surface_maintenance1/d' -e '/VK_KHR_get_surface_capabilities2/s/,$//' -i   /etc/vulkan/implicit_layer.d/VkLayer_window_system_integration.json 
+```
+
+- **Error 2**： 
+
+```
+Segmentation fault 
+```
+
+- The system's built-in Vulkan driver needs to be removed:
+
+```
+rm -r /usr/share/vulkan
+```
+
+
+
+### 3. Network Issues
+
+#### 3.1 Solution for Dual Network Cards Displayed in Settings > Network
+
+- Modify the configuration as follows:
+
+```
+sudo sed -i 's/NAME=\"$env{ID_NET_NAME}\"/NAME=\"$env{ID_NET_SLOT}\"/' /usr/lib/udev/rules.d/80-net-setup-link.rules sudo sed -i "/ACTION!=\"add|change|move\",/aENV{INTERFACE}==\"*p2p*\", ENV{NM_UNMANAGED}=\"1\"" /usr/lib/udev/rules.d/85-nm-unmanaged.rules 
+```
+
+**Note: The above modifications may introduce a probability of the eth0 and eth1 interface names being swapped in the Settings.**
+
+#### 3.2 Device Cannot Access the Internet After Connecting to a Wi-Fi Hotspot
+
+- The routing configuration is not added by default in the image. Users need to add it manually:
+
+```
+iptables -t nat -A POSTROUTING -s 10.42.0.1/24 -o ethx -j MASQUERADE
 ```
