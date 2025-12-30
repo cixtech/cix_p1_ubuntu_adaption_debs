@@ -173,7 +173,7 @@ sudo ./cix-install.sh
 
 **Note: After executing this command, the remaining steps in Chapter 2 do not need to be performed.**
 
- 
+
 
 ### 2.2 GPU Installation
 
@@ -335,6 +335,16 @@ export GSK_GPU_DISABLE=mipmap
 
 ```
 export QT_QPA_PLATFORM=wayland
+```
+
+#### 1.4 **Disable automatic updates to Avoid GPU malfunctions**
+
+- Open 'Software & Update' app, select Updates tab, and change the 'Automatically check for updates' option on that page to '**Never**'.
+
+- Additionally, you can disable automatic updates via command line.
+
+```
+sudo systemctl disable unattended-upgrades
 ```
 
 

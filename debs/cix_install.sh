@@ -88,9 +88,6 @@ main() {
     # Pre-checks
     check_root
     UBUNTU_CODENAME=$(get_ubuntu_codename)  # Core: use version codename
-    WORK_DIR="/tmp/cix_install"  # Working directory
-    mkdir -p "$WORK_DIR"
-    cd "$WORK_DIR" || log_error "Failed to switch to working directory $WORK_DIR"
 
     # ====================== Step 1: Ubuntu 22.04 (jammy) Exclusive Operations ======================
     if [ "$UBUNTU_CODENAME" = "jammy" ]; then  # Use codename for judgment
@@ -149,7 +146,7 @@ main() {
     cd cix-go || log_error "Failed to switch to cix-go directory"
     ./install.sh --dkms || log_error "cix-go's install.sh execution failed"
     # Return to working directory to continue subsequent operations
-    cd "$WORK_DIR" || log_error "Failed to switch back to working directory $WORK_DIR"
+    cd ..
 
     # Install common deb packages
     log_info "Installing common deb packages"
@@ -169,10 +166,10 @@ main() {
     if [ "$UBUNTU_CODENAME" = "noble" ]; then  # Use codename for judgment
         log_info "===== Ubuntu ${UBUNTU_VERSIONS[$UBUNTU_CODENAME]} ($UBUNTU_CODENAME) exclusive package installation ====="
         UBUNTU_2404_URLS=(
-            "${BASE_URL}/ffmpeg/ffmpeg_6.1.1-3ubuntu5%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavutil58_6.1.1-3ubuntu5%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavcodec60_6.1.1-3ubuntu5%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavformat60_6.1.1-3ubuntu5%2Bcix_arm64.deb"
+            "${BASE_URL}/ffmpeg/ffmpeg_6.1.1-3ubuntu5+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavutil58_6.1.1-3ubuntu5+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavcodec60_6.1.1-3ubuntu5+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavformat60_6.1.1-3ubuntu5+cix_arm64.deb"
             "${BASE_URL}/gstreamer/cix-gstreamer_1.24.2_arm64.deb"
         )
 
@@ -186,13 +183,13 @@ main() {
     if [ "$UBUNTU_CODENAME" = "plucky" ]; then  # Use codename for judgment
         log_info "===== Ubuntu ${UBUNTU_VERSIONS[$UBUNTU_CODENAME]} ($UBUNTU_CODENAME) exclusive package installation ====="
         UBUNTU_2504_URLS=(
-            "${BASE_URL}/ffmpeg/ffmpeg_7.1.1-1ubuntu1%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavutil59_7.1.1-1ubuntu1%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavcodec61_7.1.1-1ubuntu1%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavformat61_7.1.1-1ubuntu1%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavfilter10_7.1.1-1ubuntu1%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libavdevice61_7.1.1-1ubuntu1%2Bcix_arm64.deb"
-            "${BASE_URL}/ffmpeg/libswscale8_7.1.1-1ubuntu1%2Bcix_arm64.deb"
+            "${BASE_URL}/ffmpeg/ffmpeg_7.1.1-1ubuntu1+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavutil59_7.1.1-1ubuntu1+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavcodec61_7.1.1-1ubuntu1+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavformat61_7.1.1-1ubuntu1+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavfilter10_7.1.1-1ubuntu1+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libavdevice61_7.1.1-1ubuntu1+cix_arm64.deb"
+            "${BASE_URL}/ffmpeg/libswscale8_7.1.1-1ubuntu1+cix_arm64.deb"
             "${BASE_URL}/gstreamer/cix-gstreamer_1.26.2_arm64.deb"
         )
 
